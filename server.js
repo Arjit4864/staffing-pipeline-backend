@@ -146,4 +146,21 @@ app.post('/api/gmail-webhook', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
+// 6. SERVE DATA TO THE RECRUITER DASHBOARD
+app.get('/api/candidates', async (req, res) => {
+    try {
+        // Fetch all scheduled interviews from Neon, newest first
+        const result = await pool.query('SELECT * FROM interviews ORDER BY id DESC');
+        
+        // Send the data back as a JSON response
+        res.status(200).json({
+            success: true,
+            count: result.rows.length,
+            data: result.rows
+        });
+    } catch (error) {
+        console.error("Database fetch error:", error);
+        res.status(500).json({ success: false, error: "Failed to fetch candidates" });
+    }
+});
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
