@@ -2,6 +2,25 @@ import express from 'express';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { google } from 'googleapis'; // 1. Added googleapis import
 import dotenv from 'dotenv';
+import pkg from 'pg';
+const { Pool } = pkg;
+
+// Initialize Neon Database Connection
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+});
+
+// Create the interviews table if it doesn't exist
+pool.query(`
+    CREATE TABLE IF NOT EXISTS interviews (
+        id SERIAL PRIMARY KEY,
+        company VARCHAR(255),
+        interview_date VARCHAR(50),
+        interview_time VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+`).catch(err => console.error("Database initialization error:", err));
 
 dotenv.config();
 
@@ -98,6 +117,28 @@ app.post('/api/gmail-webhook', async (req, res) => {
         const result = await model.generateContent(prompt);
         console.log("\n--- Gemini AI Extraction Result ---");
         console.log(result.response.text());
+
+        const aiResponseText = result.response.text();
+        console.log("\n--- Gemini AI Extraction Result ---");
+        console.log(aiResponseText);
+
+        // Strip Markdown code blocks if Gemini includes them (e.g., ```json ... ```)
+        const cleanJsonString = aiResponseText.replace(/```json\n?|```/g, '').trim();
+        const parsedData = JSON.parse(cleanJsonString);
+
+        // Save the structured data to Neon PostgreSQL
+        const insertQuery = `
+            INSERT INTO interviews (company, interview_date, interview_time)
+            VALUES ($1, $2, $3)
+            RETURNING *;
+        `;
+        const dbResult = await pool.query(insertQuery, [
+            parsedData.company || 'Unknown', 
+            parsedData.date || 'Unknown', 
+            parsedData.time || 'Unknown'
+        ]);
+
+        console.log("\n[DATABASE] Successfully saved interview to Neon:", dbResult.rows[0]);
 
     } catch (error) {
         console.error("Webhook or Parsing Error:", error);
