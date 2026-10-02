@@ -1,14 +1,16 @@
-const express = require('express');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-require('dotenv').config();
+import express from 'express';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
-// Essential for receiving Google's JSON webhook payload
-app.use(express.json()); 
+app.use(express.json());
 
-// 1. THE GOOGLE DOMAIN VERIFICATION BYPASS
+// 1. Google Domain Verification Bypass
 app.get('/', (req, res) => {
     res.send(`
+        <!DOCTYPE html>
         <html>
             <head>
                 <meta name="google-site-verification" content="XjSbxHGLKIRQF6kl97M14GtVz836kTOtn5r3-7dxJ8E" />
@@ -19,10 +21,10 @@ app.get('/', (req, res) => {
     `);
 });
 
-// 2. THE GMAIL WEBHOOK & GEMINI PARSER
+// 2. Gmail Webhook & Gemini Parser
 app.post('/api/gmail-webhook', async (req, res) => {
     try {
-        // Acknowledge receipt immediately so Google stops pinging
+        // Acknowledge receipt immediately so Google stops retrying
         res.status(200).send('OK');
 
         if (!req.body || !req.body.message) {
@@ -36,13 +38,11 @@ app.post('/api/gmail-webhook', async (req, res) => {
         
         console.log(`\n[RENDER] Webhook caught! Email: ${emailAddress} | historyId: ${historyId}`);
 
-        // TODO: Use Gmail API here to fetch the actual email body using the historyId.
-        // For testing the AI pipeline right now, we use a mock email string:
+        // Mock string to verify extraction pipeline until Gmail API fetch call is linked
         const rawEmailText = "Subject: Interview Invitation\nHi Arjit, we would like to schedule your technical interview for next Tuesday at 2:00 PM EST.";
 
-        // Initialize Gemini
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // updated to fastest model
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         
         const prompt = `
             Analyze the following email and extract the interview date, time, and company name.
