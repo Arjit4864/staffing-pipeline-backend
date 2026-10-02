@@ -163,4 +163,22 @@ app.get('/api/candidates', async (req, res) => {
         res.status(500).json({ success: false, error: "Failed to fetch candidates" });
     }
 });
+// 7. RENEW GMAIL WATCH SUBSCRIPTION
+app.get('/api/start-watch', async (req, res) => {
+    try {
+        const response = await gmail.users.watch({
+            userId: 'YOUR_ACTUAL_EMAIL@gmail.com', // The inbox you are testing
+            requestBody: {
+                labelFilterAction: 'include',
+                labelIds: ['INBOX'],
+                topicName: 'projects/ai-job-applier-488220/topics/YOUR_TOPIC_NAME' // Paste your full Pub/Sub topic path here
+            }
+        });
+        console.log("Watch activated:", response.data);
+        res.status(200).json({ success: true, data: response.data });
+    } catch (error) {
+        console.error("Watch activation failed:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
