@@ -43,7 +43,7 @@ pool.query(`
 
 // --- GEMINI AI CONFIGURATION ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const aiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const aiModel = genAI.getGenerativeModel({ model: "gemini-pro" });
 
 
 // ==========================================
