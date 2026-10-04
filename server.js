@@ -69,7 +69,19 @@ app.post('/api/gmail-webhook', async (req, res) => {
             format: 'full'
         });
 
-        const emailText = emailResponse.data.snippet; 
+        // Extract the full email body instead of just the short snippet
+        const payload = emailResponse.data.payload;
+        let emailText = emailResponse.data.snippet; // Fallback
+
+        // Gmail encodes the body in base64, so we must decode it to plain text
+        if (payload.parts) {
+            const part = payload.parts.find(p => p.mimeType === 'text/plain');
+            if (part && part.body && part.body.data) {
+                emailText = Buffer.from(part.body.data, 'base64').toString('utf-8');
+            }
+        } else if (payload.body && payload.body.data) {
+            emailText = Buffer.from(payload.body.data, 'base64').toString('utf-8');
+        }
         console.log("--- Fetched Real Email Content ---");
         console.log(emailText);
 
