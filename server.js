@@ -13,7 +13,6 @@ app.use(cors());
 app.use(express.json());
 
 // --- OAUTH2 AUTHENTICATION ---
-// Reads credentials from the files securely stored in your Render environment
 const credentials = JSON.parse(fs.readFileSync('credentials.json'));
 const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
 const auth = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
@@ -29,13 +28,15 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// Initialize table if it doesn't exist yet
+// Initialize table with the new role and type columns
 pool.query(`
     CREATE TABLE IF NOT EXISTS interviews (
         id SERIAL PRIMARY KEY,
         company VARCHAR(255),
         interview_date VARCHAR(50),
         interview_time VARCHAR(50),
+        role_title VARCHAR(255) DEFAULT 'Unknown',
+        interview_type VARCHAR(100) DEFAULT 'Unknown',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 `).catch(err => console.error("Database initialization error:", err));
@@ -94,14 +95,18 @@ app.post('/api/gmail-webhook', async (req, res) => {
             return; // Stops the function here so Gemini is never called
         }
 
-        // Extract parameters using Gemini 3.6 Flash via REST API
-        const prompt = `
-            Extract the following details from this interview invitation email:
-            Company Name, Date of Interview, Time of Interview.
-            Return ONLY a raw JSON object with keys "company", "date", and "time".
-            Email text: "${emailText}"
-        `;
-        
+        // Expanded prompt to extract role and interview type. 
+        // Fixed the variable reference to use ${emailText} instead of the undefined${emailBody}.
+        const prompt = `Analyze this email body and extract the interview details. Return ONLY a valid JSON object with these exact keys:
+{
+  "company": "Company Name",
+  "interview_date": "Date like Thursday, October 15th",
+  "interview_time": "Time like 10:30 AM EST",
+  "role_title": "The exact job role or position title (e.g., Software Engineer, Data Analyst). If not found, use 'Unknown'",
+  "interview_type": "Categorize the interview round (e.g., HR Screen, Technical, Behavioral, System Design, Final Round). If not found, use 'Unknown'"
+}
+Email Body: ${emailText}`;
+
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
         
         const aiResponse = await fetch(geminiUrl, {
@@ -119,7 +124,7 @@ app.post('/api/gmail-webhook', async (req, res) => {
 
         if (!aiData.candidates) {
             console.error("API Error: Missing candidates array. The request was rejected by Google.");
-            return; // Stop execution to prevent the server crash
+            return; 
         }
 
         const aiResponseText = aiData.candidates[0].content.parts[0].text;
@@ -136,16 +141,19 @@ app.post('/api/gmail-webhook', async (req, res) => {
             Object.entries(rawData).map(([k, v]) => [k.toLowerCase(), v])
         );
 
-        // Insert extracted data into Neon PostgreSQL
+        // Insert extracted data into Neon PostgreSQL including the two new fields.
+        // Fixed previous mapping errors where parsedData.date was used instead of parsedData.interview_date.
         const insertQuery = `
-            INSERT INTO interviews (company, interview_date, interview_time)
-            VALUES ($1, $2, $3)
+            INSERT INTO interviews (company, interview_date, interview_time, role_title, interview_type)
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING *;
         `;
         const dbResult = await pool.query(insertQuery, [
             parsedData.company || 'Unknown', 
-            parsedData.date || 'Unknown', 
-            parsedData.time || 'Unknown'
+            parsedData.interview_date || 'Unknown', 
+            parsedData.interview_time || 'Unknown',
+            parsedData.role_title || 'Unknown',
+            parsedData.interview_type || 'Unknown'
         ]);
 
         console.log("[DATABASE] Successfully saved interview to Neon:", dbResult.rows[0]);
@@ -174,11 +182,10 @@ app.get('/api/candidates', async (req, res) => {
 app.get('/api/start-watch', async (req, res) => {
     try {
         const response = await gmail.users.watch({
-            userId: 'me', // 'me' automatically uses the authenticated token's email
+            userId: 'me', 
             requestBody: {
                 labelFilterAction: 'include',
                 labelIds: ['INBOX'],
-                // NOTE: Ensure this matches your exact Google Cloud Pub/Sub topic string
                 topicName: 'projects/ai-job-applier-488220/topics/gmail-events' 
             }
         });
