@@ -93,6 +93,15 @@ app.post('/api/gmail-webhook', async (req, res) => {
         });
         
         const aiData = await aiResponse.json();
+        
+        console.log("--- Raw Gemini API Response ---");
+        console.log(JSON.stringify(aiData, null, 2));
+
+        if (!aiData.candidates) {
+            console.error("API Error: Missing candidates array. The request was rejected by Google.");
+            return; // Stop execution to prevent the server crash
+        }
+
         const aiResponseText = aiData.candidates[0].content.parts[0].text;
         
         console.log("--- Gemini AI Extraction Result ---");
