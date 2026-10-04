@@ -1,5 +1,4 @@
 import express from 'express';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -42,9 +41,6 @@ pool.query(`
 `).catch(err => console.error("Database initialization error:", err));
 
 // --- GEMINI AI CONFIGURATION ---
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const aiModel = genAI.getGenerativeModel({ model: "gemini-pro" });
-
 
 // ==========================================
 //                 API ROUTES
@@ -78,7 +74,7 @@ app.post('/api/gmail-webhook', async (req, res) => {
         console.log("--- Fetched Real Email Content ---");
         console.log(emailText);
 
-        // Extract parameters using Gemini 1.5 Flash
+        // Extract parameters using Gemini 1.5 Flash via REST API
         const prompt = `
             Extract the following details from this interview invitation email:
             Company Name, Date of Interview, Time of Interview.
@@ -86,8 +82,18 @@ app.post('/api/gmail-webhook', async (req, res) => {
             Email text: "${emailText}"
         `;
         
-        const aiResult = await aiModel.generateContent(prompt);
-        const aiResponseText = aiResult.response.text();
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        
+        const aiResponse = await fetch(geminiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+            })
+        });
+        
+        const aiData = await aiResponse.json();
+        const aiResponseText = aiData.candidates[0].content.parts[0].text;
         
         console.log("--- Gemini AI Extraction Result ---");
         console.log(aiResponseText);
