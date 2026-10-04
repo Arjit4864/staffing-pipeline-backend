@@ -107,7 +107,7 @@ app.post('/api/gmail-webhook', async (req, res) => {
 }
 Email Body: ${emailText}`;
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
         
         const aiResponse = await fetch(geminiUrl, {
             method: 'POST',
