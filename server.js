@@ -40,7 +40,6 @@ pool.query(`
     );
 `).catch(err => console.error("Database initialization error:", err));
 
-// --- GEMINI AI CONFIGURATION ---
 
 // ==========================================
 //                 API ROUTES
@@ -83,7 +82,7 @@ app.post('/api/gmail-webhook', async (req, res) => {
             return; // Stops the function here so Gemini is never called
         }
 
-        // Extract parameters using Gemini 1.5 Flash via REST API
+        // Extract parameters using Gemini 3.6 Flash via REST API
         const prompt = `
             Extract the following details from this interview invitation email:
             Company Name, Date of Interview, Time of Interview.
@@ -116,9 +115,14 @@ app.post('/api/gmail-webhook', async (req, res) => {
         console.log("--- Gemini AI Extraction Result ---");
         console.log(aiResponseText);
 
-        // Parse Gemini's JSON block
+        // Parse Gemini's JSON block and clean markdown
         const cleanJsonString = aiResponseText.replace(/```json\n?|```/g, '').trim();
-        const parsedData = JSON.parse(cleanJsonString);
+        const rawData = JSON.parse(cleanJsonString);
+
+        // Normalize keys to lowercase to prevent mismatch errors
+        const parsedData = Object.fromEntries(
+            Object.entries(rawData).map(([k, v]) => [k.toLowerCase(), v])
+        );
 
         // Insert extracted data into Neon PostgreSQL
         const insertQuery = `
