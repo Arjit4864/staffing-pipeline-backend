@@ -39,21 +39,7 @@ pool.query(`
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 `).catch(err => console.error("Database initialization error:", err));
-// --- DEBUG: CHECK AVAILABLE GEMINI MODELS ---
-fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`)
-    .then(res => res.json())
-    .then(data => {
-        console.log("\n--- GOOGLE API KEY DIAGNOSTIC ---");
-        if (data.models) {
-            // Extract and log only the valid Gemini model strings
-            console.log("Allowed Models:", data.models.map(m => m.name).filter(n => n.includes("gemini")));
-        } else {
-            // Log the real reason the key is failing (e.g., 403 API Disabled)
-            console.log("Key Error:", data);
-        }
-        console.log("----------------------------------\n");
-    })
-    .catch(err => console.error("Diagnostic failed:", err));
+
 // --- GEMINI AI CONFIGURATION ---
 
 // ==========================================
@@ -96,8 +82,7 @@ app.post('/api/gmail-webhook', async (req, res) => {
             Email text: "${emailText}"
         `;
         
-        // Use the stable v1 endpoint and the fully qualified latest alias
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
         
         const aiResponse = await fetch(geminiUrl, {
             method: 'POST',
