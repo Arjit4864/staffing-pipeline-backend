@@ -74,6 +74,15 @@ app.post('/api/gmail-webhook', async (req, res) => {
         console.log("--- Fetched Real Email Content ---");
         console.log(emailText);
 
+        // The Bouncer: Only pass emails containing job-related keywords to Gemini
+        const keywords = ["interview", "application", "developer", "engineer", "position", "stripe"];
+        const isJobRelated = keywords.some(word => emailText.toLowerCase().includes(word));
+
+        if (!isJobRelated) {
+            console.log("Ignored personal or irrelevant email.");
+            return; // Stops the function here so Gemini is never called
+        }
+
         // Extract parameters using Gemini 1.5 Flash via REST API
         const prompt = `
             Extract the following details from this interview invitation email:
@@ -82,7 +91,7 @@ app.post('/api/gmail-webhook', async (req, res) => {
             Email text: "${emailText}"
         `;
         
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
         
         const aiResponse = await fetch(geminiUrl, {
             method: 'POST',
